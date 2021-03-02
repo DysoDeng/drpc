@@ -1,0 +1,7 @@
+/.idea
+/go_build_main_go
+/lastupdate.tmp
+drpc
+main.go
+/client
+/rpc
