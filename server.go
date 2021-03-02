@@ -1,4 +1,4 @@
-package server
+package drpc
 
 import (
 	"context"
