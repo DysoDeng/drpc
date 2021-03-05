@@ -8,49 +8,51 @@ import (
 	"log"
 	"net"
 	"reflect"
-	"sync"
 )
 
+// Server grpc服务注册
 type Server struct {
-	mu       sync.RWMutex
-
-	reg        register.Register
+	// register 服务注册器
+	register register.Register
+	// grpcServer grpc
 	grpcServer *grpc.Server
-
 	// AuthFunc can be used to auth.
 	AuthFunc func(ctx context.Context, token string) error
 }
 
-func NewServer(reg register.Register) *Server {
+// NewServer 新建服务注册
+func NewServer(register register.Register, opt ...grpc.ServerOption) *Server {
 
-	s := &Server{
-		reg:        reg,
-		grpcServer: grpc.NewServer(),
+	server := &Server{
+		register:   register,
+		grpcServer: grpc.NewServer(opt...),
 	}
 
-	err := s.reg.Start()
+	err := server.register.Init()
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	return s
+	return server
 }
 
-func (s *Server) Register(service interface{}, reg interface{}, metadata string) error {
+// Register 注册服务
+func (s *Server) Register(service interface{}, grpcRegister interface{}, metadata string) error {
 
 	serviceName := reflect.Indirect(reflect.ValueOf(service)).Type().Name()
 
-	fn := reflect.ValueOf(reg)
-
+	// 注册grpc服务
+	fn := reflect.ValueOf(grpcRegister)
 	if fn.Kind() != reflect.Func {
-		return errors.New("reg 不是一个函数")
+		return errors.New("`grpcRegister` is not a grpc registration function")
 	}
 	params := make([]reflect.Value, 2)
 	params[0] = reflect.ValueOf(s.grpcServer)
 	params[1] = reflect.ValueOf(service)
 	fn.Call(params)
 
-	err := s.reg.Register(serviceName, metadata)
+	// 服务发现注册
+	err := s.register.Register(serviceName, metadata)
 	if err != nil {
 		return err
 	}
@@ -58,13 +60,13 @@ func (s *Server) Register(service interface{}, reg interface{}, metadata string)
 	return nil
 }
 
+// Serve 启动服务监听
 func (s *Server) Serve(address string) {
-	// 监听本地端口
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
-		log.Fatalf("Rpc Server net.Listen err: %v", err)
+		log.Fatalf("rpc server net.Listen err: %v", err)
 	}
-	log.Println(address + " Rpc Server net.Listing...")
+	log.Printf("listening and serving grpc on: %s\n", address)
 
 	err = s.grpcServer.Serve(listener)
 	if err != nil {
@@ -72,12 +74,15 @@ func (s *Server) Serve(address string) {
 	}
 }
 
+// Stop 服务停止
 func (s *Server) Stop() error {
-	err := s.reg.Stop()
+	err := s.register.Stop()
 	if err != nil {
 		return err
 	}
 	s.grpcServer.Stop()
+
+	log.Println("grpc server stop")
 
 	return nil
 }

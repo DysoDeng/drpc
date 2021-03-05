@@ -13,13 +13,13 @@ import (
 	"time"
 )
 
-//
+// EtcdV3Discovery implements etcd discovery.
 type EtcdV3Discovery struct {
-	kv *clientv3.Client
+	kv         *clientv3.Client
 	cc         resolver.ClientConn
 	serverList map[string]resolver.Address //服务列表
 	lock       sync.Mutex
-	basePath string
+	basePath   string
 }
 
 // NewEtcdV3Discovery
@@ -34,7 +34,7 @@ func NewEtcdV3Discovery(address []string, basePath string) (ServiceDiscovery, er
 	}
 
 	d := &EtcdV3Discovery{
-		kv: cli,
+		kv:       cli,
 		basePath: basePath,
 	}
 
