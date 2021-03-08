@@ -22,7 +22,7 @@ type EtcdV3Discovery struct {
 	basePath   string
 }
 
-// NewEtcdV3Discovery
+// NewEtcdV3Discovery 新建etcd服务中心连接
 func NewEtcdV3Discovery(address []string, basePath string) (ServiceDiscovery, error) {
 
 	cli, err := clientv3.New(clientv3.Config{
@@ -43,29 +43,30 @@ func NewEtcdV3Discovery(address []string, basePath string) (ServiceDiscovery, er
 	return d, nil
 }
 
+// Conn 连接服务
 func (d *EtcdV3Discovery) Conn(service interface{}) *grpc.ClientConn {
 	serviceName := reflect.Indirect(reflect.ValueOf(service)).Type().Name()
 
 	// 连接服务器
 	conn, err := grpc.Dial(
 		d.Scheme()+"://8.8.8.8/"+serviceName,
-		grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"LoadBalancingPolicy": "%s"}`, "round_robin")),
+		grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"LoadBalancingPolicy": "%s"}`, RoundRobin)),
 		grpc.WithInsecure(),
 	)
 
 	if err != nil {
-		log.Fatalf("net.Connect err: %v", err)
+		log.Fatalf("grpc net.Connect err: %v", err)
 	}
 
 	return conn
 }
 
+// Build
 func (d *EtcdV3Discovery) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
-	log.Println("Build")
 	d.cc = cc
 	d.serverList = make(map[string]resolver.Address)
 	prefix := "/" + target.Scheme + "/" + target.Endpoint + "/"
-	//根据前缀获取现有的key
+	// 根据前缀获取现有的key
 	resp, err := d.kv.Get(context.Background(), prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
@@ -75,7 +76,7 @@ func (d *EtcdV3Discovery) Build(target resolver.Target, cc resolver.ClientConn, 
 		d.SetServiceList(string(ev.Key), string(ev.Value))
 	}
 	d.cc.UpdateState(resolver.State{Addresses: d.getServices()})
-	//监视前缀，修改变更的server
+	// 监视前缀，修改变更的server
 	go d.watcher(prefix)
 	return d, nil
 }
@@ -85,20 +86,20 @@ func (d *EtcdV3Discovery) ResolveNow(rn resolver.ResolveNowOptions) {
 	//log.Println("ResolveNow")
 }
 
-//Scheme return schema
+// Scheme return schema
 func (d *EtcdV3Discovery) Scheme() string {
 	return d.basePath
 }
 
-//Close 关闭服务
+// Close 关闭服务
 func (d *EtcdV3Discovery) Close() {
 	_ = d.kv.Close()
 }
 
-//watcher 监听前缀
+// watcher 监听前缀
 func (d *EtcdV3Discovery) watcher(prefix string) {
 	rch := d.kv.Watch(context.Background(), prefix, clientv3.WithPrefix())
-	log.Printf("watching prefix:%s now...", prefix)
+	// log.Printf("watching prefix:%s now...", prefix)
 	for wresp := range rch {
 		for _, ev := range wresp.Events {
 			switch ev.Type {
@@ -111,22 +112,22 @@ func (d *EtcdV3Discovery) watcher(prefix string) {
 	}
 }
 
-//SetServiceList 新增服务地址
+// SetServiceList 新增服务地址
 func (d *EtcdV3Discovery) SetServiceList(key, val string) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	d.serverList[key] = resolver.Address{Addr: val}
 	d.cc.UpdateState(resolver.State{Addresses: d.getServices()})
-	log.Println("put key :", key, "val:", val)
+	// log.Println("put key :", key, "val:", val)
 }
 
-//DelServiceList 删除服务地址
+// DelServiceList 删除服务地址
 func (d *EtcdV3Discovery) DelServiceList(key string) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	delete(d.serverList, key)
 	d.cc.UpdateState(resolver.State{Addresses: d.getServices()})
-	log.Println("del key:", key)
+	// log.Println("del key:", key)
 }
 
 // GetServiceList
@@ -134,7 +135,7 @@ func (d *EtcdV3Discovery) GetServiceList() map[string]resolver.Address {
 	return d.serverList
 }
 
-//GetServices 获取服务地址
+// getServices 获取服务地址
 func (d *EtcdV3Discovery) getServices() []resolver.Address {
 	addrs := make([]resolver.Address, 0, len(d.serverList))
 
