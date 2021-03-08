@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/rcrowley/go-metrics"
 	"go.etcd.io/etcd/clientv3"
 	"log"
 	"strings"
@@ -26,6 +27,9 @@ type EtcdV3Register struct {
 	Lease       int64
 	metasLock   sync.RWMutex
 	metas       map[string]string
+
+	// Metrics 监控
+	Metrics metrics.Meter
 
 	// etcd client
 	kv *clientv3.Client
@@ -169,4 +173,9 @@ func (register *EtcdV3Register) Unregister(name string) error {
 	log.Printf("unregister service: %s", name)
 
 	return nil
+}
+
+// GetMetrics 获取Meter
+func (register *EtcdV3Register) GetMetrics() metrics.Meter {
+	return register.Metrics
 }

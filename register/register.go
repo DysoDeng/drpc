@@ -1,5 +1,9 @@
 package register
 
+import (
+	"github.com/rcrowley/go-metrics"
+)
+
 // Register 服务注册器接口
 type Register interface {
 
@@ -14,7 +18,10 @@ type Register interface {
 	// metadata 服务元数据
 	Register(name string, metadata string) error
 
-	// 服务注销
+	// Unregister 服务注销
 	// name 服务名称
 	Unregister(name string) error
+
+	// GetMetrics 获取Meter
+	GetMetrics() metrics.Meter
 }

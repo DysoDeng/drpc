@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"github.com/dysodeng/drpc/register"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/rcrowley/go-metrics"
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"os"
 	"reflect"
+	"time"
 )
 
 // Server grpc服务注册
@@ -16,12 +20,43 @@ type Server struct {
 	register register.Register
 	// grpcServer grpc
 	grpcServer *grpc.Server
-	// AuthFunc can be used to auth.
-	AuthFunc func(ctx context.Context, token string) error
 }
+
+type AuthFunc func(ctx context.Context, token string) error
 
 // NewServer 新建服务注册
 func NewServer(register register.Register, opt ...grpc.ServerOption) *Server {
+
+	var interceptorStream []grpc.StreamServerInterceptor
+	var interceptor []grpc.UnaryServerInterceptor
+
+	// Metrics监控
+	if register.GetMetrics() != nil {
+		m := register.GetMetrics()
+		_ = metrics.Register("tps", m)
+
+		interceptor = append(interceptor, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+			register.GetMetrics().Mark(1)
+			return handler(ctx, req)
+		})
+		interceptorStream = append(interceptorStream, func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+			register.GetMetrics().Mark(1)
+			return handler(srv, ss)
+		})
+
+		go func() {
+			metrics.Log(metrics.DefaultRegistry,
+				30 * time.Second,
+				log.New(os.Stdout, "metrics: ", log.LstdFlags))
+		}()
+	}
+
+	if len(interceptor) > 0 {
+		opt = append(opt, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptor...)))
+	}
+	if len(interceptorStream) > 0 {
+		opt = append(opt, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(interceptorStream...)))
+	}
 
 	server := &Server{
 		register:   register,
