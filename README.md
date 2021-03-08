@@ -75,6 +75,17 @@ func main() {
 
 创建客户端 client.go
 ```go
+import (
+    "context"
+    "github.com/dysodeng/drpc/discovery"
+    demo "github.com/dysodeng/drpc/rpc/proto"
+    "github.com/dysodeng/drpc/rpc/service"
+    "google.golang.org/grpc/codes"
+    "google.golang.org/grpc/status"
+    "io"
+    "log"
+    "time"
+)
 func main() {
     d, err := discovery.NewEtcdV3Discovery([]string{"127.0.0.1:2379"}, "demo/rpc")
     if err != nil {
