@@ -30,6 +30,7 @@ type EtcdV3Register struct {
 
 	// Metrics 监控
 	Metrics metrics.Meter
+	ShowMetricsLog bool
 
 	// etcd client
 	kv *clientv3.Client
@@ -178,4 +179,9 @@ func (register *EtcdV3Register) Unregister(name string) error {
 // GetMetrics 获取Meter
 func (register *EtcdV3Register) GetMetrics() metrics.Meter {
 	return register.Metrics
+}
+
+// IsShowMetricsLog 是否显示监控日志
+func (register *EtcdV3Register) IsShowMetricsLog() bool {
+	return register.ShowMetricsLog
 }

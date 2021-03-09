@@ -24,4 +24,7 @@ type Register interface {
 
 	// GetMetrics 获取Meter
 	GetMetrics() metrics.Meter
+
+	// IsShowMetricsLog 是否显示监控日志
+	IsShowMetricsLog() bool
 }

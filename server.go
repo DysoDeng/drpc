@@ -33,7 +33,7 @@ func NewServer(register register.Register, opt ...grpc.ServerOption) *Server {
 	// Metrics监控
 	if register.GetMetrics() != nil {
 		m := register.GetMetrics()
-		_ = metrics.Register("tps", m)
+		metrics.GetOrRegister("grpc_tps", m)
 
 		interceptor = append(interceptor, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 			register.GetMetrics().Mark(1)
@@ -44,11 +44,13 @@ func NewServer(register register.Register, opt ...grpc.ServerOption) *Server {
 			return handler(srv, ss)
 		})
 
-		go func() {
-			metrics.Log(metrics.DefaultRegistry,
-				30 * time.Second,
-				log.New(os.Stdout, "metrics: ", log.LstdFlags))
-		}()
+		if register.IsShowMetricsLog() {
+			go func() {
+				metrics.Log(metrics.DefaultRegistry,
+					30 * time.Second,
+					log.New(os.Stdout, "metrics: ", log.LstdFlags))
+			}()
+		}
 	}
 
 	if len(interceptor) > 0 {
