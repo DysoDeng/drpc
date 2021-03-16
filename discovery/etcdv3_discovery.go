@@ -45,7 +45,13 @@ func NewEtcdV3Discovery(address []string, basePath string) (ServiceDiscovery, er
 
 // Conn 连接服务
 func (d *EtcdV3Discovery) Conn(service interface{}) *grpc.ClientConn {
-	serviceName := reflect.Indirect(reflect.ValueOf(service)).Type().Name()
+	typeName := reflect.Indirect(reflect.ValueOf(service)).Type()
+	var serviceName string
+	if typeName.String() == "string" {
+		serviceName = reflect.Indirect(reflect.ValueOf(service)).String()
+	} else {
+		serviceName = reflect.Indirect(reflect.ValueOf(service)).Type().Name()
+	}
 
 	// 连接服务器
 	conn, err := grpc.Dial(
