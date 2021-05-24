@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/dysodeng/drpc/register"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/rcrowley/go-metrics"
 	"google.golang.org/grpc"
 	"log"
@@ -54,10 +54,10 @@ func NewServer(register register.Register, opt ...grpc.ServerOption) *Server {
 	}
 
 	if len(interceptor) > 0 {
-		opt = append(opt, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptor...)))
+		opt = append(opt, grpc.UnaryInterceptor(grpcMiddleware.ChainUnaryServer(interceptor...)))
 	}
 	if len(interceptorStream) > 0 {
-		opt = append(opt, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(interceptorStream...)))
+		opt = append(opt, grpc.StreamInterceptor(grpcMiddleware.ChainStreamServer(interceptorStream...)))
 	}
 
 	server := &Server{
@@ -74,10 +74,7 @@ func NewServer(register register.Register, opt ...grpc.ServerOption) *Server {
 }
 
 // Register 注册服务
-func (s *Server) Register(service interface{}, grpcRegister interface{}, metadata string) error {
-
-	serviceName := reflect.Indirect(reflect.ValueOf(service)).Type().Name()
-
+func (s *Server) Register(serviceName string , service interface{}, grpcRegister interface{}, metadata string) error {
 	// 注册grpc服务
 	fn := reflect.ValueOf(grpcRegister)
 	if fn.Kind() != reflect.Func {
@@ -103,7 +100,7 @@ func (s *Server) Serve(address string) {
 	if err != nil {
 		log.Fatalf("rpc server net.Listen err: %v", err)
 	}
-	log.Printf("listening and serving grpc on: %s\n", address)
+	log.Printf("listening and serving grpc on %s\n", address)
 
 	err = s.grpcServer.Serve(listener)
 	if err != nil {

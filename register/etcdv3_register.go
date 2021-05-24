@@ -84,22 +84,22 @@ func (register *EtcdV3Register) Init() error {
 // Stop 停止服务注册
 func (register *EtcdV3Register) Stop() error {
 	// 注销所有服务
-	for name := range register.services {
-		_ = register.Unregister(name)
+	for serviceName := range register.services {
+		_ = register.Unregister(serviceName)
 	}
 
 	return register.kv.Close()
 }
 
 // Register 服务注册
-func (register *EtcdV3Register) Register(name string, metadata string) error {
+func (register *EtcdV3Register) Register(serviceName string, metadata string) error {
 	// 设置租约时间
 	resp, err := register.kv.Grant(context.Background(), register.Lease)
 	if err != nil {
 		return err
 	}
 
-	name = "/" + register.BasePath + "/" + name + "/" + register.ServiceAddress
+	serviceName = "/" + register.BasePath + "/" + serviceName + "/" + register.ServiceAddress
 
 	register.serviceLock.Lock()
 	defer func() {
@@ -107,7 +107,7 @@ func (register *EtcdV3Register) Register(name string, metadata string) error {
 	}()
 
 	// 注册服务并绑定租约
-	_, err = register.kv.Put(context.Background(), name, register.ServiceAddress, clientv3.WithLease(resp.ID))
+	_, err = register.kv.Put(context.Background(), serviceName, register.ServiceAddress, clientv3.WithLease(resp.ID))
 	if err != nil {
 		return err
 	}
@@ -122,9 +122,9 @@ func (register *EtcdV3Register) Register(name string, metadata string) error {
 	if register.services == nil {
 		register.services = make(map[string]service)
 	}
-	register.services[name] = service{
+	register.services[serviceName] = service{
 		host:          register.ServiceAddress,
-		key:           name,
+		key:           serviceName,
 		leaseID:       resp.ID,
 		keepAliveChan: leaseRespChan,
 	}
@@ -133,17 +133,17 @@ func (register *EtcdV3Register) Register(name string, metadata string) error {
 	if register.metas == nil {
 		register.metas = make(map[string]string)
 	}
-	register.metas[name] = metadata
+	register.metas[serviceName] = metadata
 	register.metasLock.Unlock()
 
-	log.Printf("register service: %s", name)
+	log.Printf("register grpc service: %s", serviceName)
 
 	return nil
 }
 
 // Unregister 注销服务
-func (register *EtcdV3Register) Unregister(name string) error {
-	if "" == strings.TrimSpace(name) {
+func (register *EtcdV3Register) Unregister(serviceName string) error {
+	if "" == strings.TrimSpace(serviceName) {
 		return errors.New("register service `name` can't be empty")
 	}
 
@@ -157,8 +157,8 @@ func (register *EtcdV3Register) Unregister(name string) error {
 	var ser service
 	var ok bool
 
-	if ser, ok = register.services[name]; !ok {
-		return errors.New(fmt.Sprintf("service `%s` not registered", name))
+	if ser, ok = register.services[serviceName]; !ok {
+		return errors.New(fmt.Sprintf("service `%s` not registered", serviceName))
 	}
 
 	register.serviceLock.Lock()
@@ -171,7 +171,7 @@ func (register *EtcdV3Register) Unregister(name string) error {
 		return err
 	}
 
-	log.Printf("unregister service: %s", name)
+	log.Printf("unregister service: %s", serviceName)
 
 	return nil
 }

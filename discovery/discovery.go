@@ -10,6 +10,6 @@ const (
 
 // ServiceDiscovery 服务发现接口
 type ServiceDiscovery interface {
-	Conn(service interface{}) *grpc.ClientConn
+	Conn(serviceName string) *grpc.ClientConn
 	Close()
 }

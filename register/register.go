@@ -14,13 +14,13 @@ type Register interface {
 	Stop() error
 
 	// Register 服务注册
-	// name 服务名称
-	// metadata 服务元数据
-	Register(name string, metadata string) error
+	// serviceName string 服务名称
+	// metadata string 服务元数据
+	Register(serviceName string, metadata string) error
 
 	// Unregister 服务注销
-	// name 服务名称
-	Unregister(name string) error
+	// serviceName string 服务名称
+	Unregister(serviceName string) error
 
 	// GetMetrics 获取Meter
 	GetMetrics() metrics.Meter

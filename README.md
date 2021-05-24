@@ -58,7 +58,7 @@ func main() {
         }
     }()
     
-    _ = rpcServer.Register(&service.DemoService{}, demo.RegisterDemoServer, "")
+    _ = rpcServer.Register("DemoService", &service.DemoService{}, demo.RegisterDemoServer, "")
 
     go func() {
         rpcServer.Serve(ip + ":9000")
@@ -96,7 +96,7 @@ func main() {
     demoCtx, demoCancel := context.WithDeadline(context.Background(), time.Now().Add(3 * time.Second))
     defer demoCancel()
     
-    demoConn := d.Conn(&service.DemoService{})
+    demoConn := d.Conn("DemoService")
     demoService := demo.NewDemoClient(demoConn)
     demoRes, err := demoService.UserInfo(demoCtx, &demo.Request{Uid: 1})
     if err != nil {
