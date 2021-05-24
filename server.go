@@ -47,7 +47,7 @@ func NewServer(register register.Register, opt ...grpc.ServerOption) *Server {
 		if register.IsShowMetricsLog() {
 			go func() {
 				metrics.Log(metrics.DefaultRegistry,
-					30 * time.Second,
+					30*time.Second,
 					log.New(os.Stdout, "metrics: ", log.LstdFlags))
 			}()
 		}
@@ -74,7 +74,7 @@ func NewServer(register register.Register, opt ...grpc.ServerOption) *Server {
 }
 
 // Register 注册服务
-func (s *Server) Register(serviceName string , service interface{}, grpcRegister interface{}, metadata string) error {
+func (s *Server) Register(serviceName string, service interface{}, grpcRegister interface{}, metadata string) error {
 	// 注册grpc服务
 	fn := reflect.ValueOf(grpcRegister)
 	if fn.Kind() != reflect.Func {

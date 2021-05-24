@@ -24,12 +24,12 @@ type EtcdV3Register struct {
 	services    map[string]service
 	serviceLock sync.Mutex
 	// 租约时长(秒)
-	Lease       int64
-	metasLock   sync.RWMutex
-	metas       map[string]string
+	Lease     int64
+	metasLock sync.RWMutex
+	metas     map[string]string
 
 	// Metrics 监控
-	Metrics metrics.Meter
+	Metrics        metrics.Meter
 	ShowMetricsLog bool
 
 	// etcd client
