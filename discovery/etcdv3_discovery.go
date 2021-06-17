@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+var etcdV3DiscoveryOnce sync.Once
+var etcdV3Discovery *EtcdV3Discovery
+
 // EtcdV3Discovery implements etcd discovery.
 type EtcdV3Discovery struct {
 	kv         *clientv3.Client
@@ -23,23 +26,28 @@ type EtcdV3Discovery struct {
 
 // NewEtcdV3Discovery 新建etcd服务中心连接
 func NewEtcdV3Discovery(address []string, basePath string) (ServiceDiscovery, error) {
+	var err error
+	etcdV3DiscoveryOnce.Do(func() {
+		var cli *clientv3.Client
+		cli, err = clientv3.New(clientv3.Config{
+			Endpoints:   address,
+			DialTimeout: 5 * time.Second,
+		})
+		if err == nil {
+			etcdV3Discovery = &EtcdV3Discovery{
+				kv:       cli,
+				basePath: basePath,
+			}
 
-	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   address,
-		DialTimeout: 5 * time.Second,
+			resolver.Register(etcdV3Discovery)
+		}
 	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	d := &EtcdV3Discovery{
-		kv:       cli,
-		basePath: basePath,
-	}
-
-	resolver.Register(d)
-
-	return d, nil
+	return etcdV3Discovery, nil
 }
 
 // Conn 连接服务
