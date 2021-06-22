@@ -15,6 +15,8 @@ import (
 var etcdV3DiscoveryOnce sync.Once
 var etcdV3Discovery *EtcdV3Discovery
 
+var resolverLock sync.Mutex
+
 // EtcdV3Discovery implements etcd discovery.
 type EtcdV3Discovery struct {
 	kv         *clientv3.Client
@@ -22,32 +24,23 @@ type EtcdV3Discovery struct {
 	serverList map[string]resolver.Address //服务列表
 	lock       sync.Mutex
 	basePath   string
+	etcdAddress []string
 }
 
 // NewEtcdV3Discovery 新建etcd服务中心连接
 func NewEtcdV3Discovery(address []string, basePath string) (ServiceDiscovery, error) {
-	var err error
-	etcdV3DiscoveryOnce.Do(func() {
-		var cli *clientv3.Client
-		cli, err = clientv3.New(clientv3.Config{
-			Endpoints:   address,
-			DialTimeout: 5 * time.Second,
-		})
-		if err == nil {
-			etcdV3Discovery = &EtcdV3Discovery{
-				kv:       cli,
-				basePath: basePath,
-			}
-
-			resolver.Register(etcdV3Discovery)
-		}
-	})
-
-	if err != nil {
-		return nil, err
+	d := &EtcdV3Discovery{
+		basePath: basePath,
+		etcdAddress: address,
 	}
 
-	return etcdV3Discovery, nil
+	resolverLock.Lock()
+	defer func() {
+		resolverLock.Unlock()
+	}()
+	resolver.Register(d)
+
+	return d, nil
 }
 
 // Conn 连接服务
@@ -68,11 +61,19 @@ func (d *EtcdV3Discovery) Conn(serviceName string) *grpc.ClientConn {
 
 // Build creates a new resolver for the given target.
 func (d *EtcdV3Discovery) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+	cli, err := clientv3.New(clientv3.Config{
+		Endpoints:   d.etcdAddress,
+		DialTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	d.cc = cc
 	d.serverList = make(map[string]resolver.Address)
 	prefix := "/" + target.Scheme + "/" + target.Endpoint + "/"
 	// 根据前缀获取现有的key
-	resp, err := d.kv.Get(context.Background(), prefix, clientv3.WithPrefix())
+	resp, err := cli.Get(context.Background(), prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,20 @@ func (d *EtcdV3Discovery) Build(target resolver.Target, cc resolver.ClientConn, 
 	}
 	d.cc.UpdateState(resolver.State{Addresses: d.getServices()})
 	// 监视前缀，修改变更的server
-	go d.watcher(prefix)
+	go func() {
+		rch := cli.Watch(context.Background(), prefix, clientv3.WithPrefix())
+		for wresp := range rch {
+			for _, ev := range wresp.Events {
+				switch ev.Type {
+				case mvccpb.PUT: //新增或修改
+					d.SetServiceList(string(ev.Kv.Key), string(ev.Kv.Value))
+				case mvccpb.DELETE: //删除
+					d.DeleteServiceList(string(ev.Kv.Key))
+				}
+			}
+		}
+	}()
+
 	return d, nil
 }
 
@@ -98,7 +112,7 @@ func (d *EtcdV3Discovery) ResolveNow(rn resolver.ResolveNowOptions) {
 
 // Close 关闭服务
 func (d *EtcdV3Discovery) Close() {
-	_ = d.kv.Close()
+	//_ = d.kv.Close()
 }
 
 // watcher 监听前缀
@@ -144,4 +158,8 @@ func (d *EtcdV3Discovery) getServices() []resolver.Address {
 		addrs = append(addrs, v)
 	}
 	return addrs
+}
+
+func init() {
+
 }
