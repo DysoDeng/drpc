@@ -12,9 +12,6 @@ import (
 	"time"
 )
 
-var etcdV3DiscoveryOnce sync.Once
-var etcdV3Discovery *EtcdV3Discovery
-
 var resolverLock sync.Mutex
 
 // EtcdV3Discovery implements etcd discovery.
